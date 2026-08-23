@@ -8,8 +8,14 @@ if (!supabaseUrl || !supabaseKey) {
     console.warn("Missing Supabase credentials in environment variables.");
 }
 
+// Assign to global just in case
+global.WebSocket = WebSocket;
+
 const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
+    realtime: {
+        transport: WebSocket
+    },
     global: { WebSocket }
 });
 
