@@ -1,0 +1,79 @@
+const express = require('express');
+const axios = require('axios');
+const supabase = require('../supabase');
+const router = express.Router();
+
+const ZID_CLIENT_ID = process.env.ZID_CLIENT_ID;
+const ZID_CLIENT_SECRET = process.env.ZID_CLIENT_SECRET;
+const ZID_REDIRECT_URI = process.env.ZID_REDIRECT_URI;
+const ZID_OAUTH_URL = 'https://oauth.zid.sa';
+const ZID_API_URL = 'https://api.zid.sa/v1';
+
+// 1. Redirect to Zid OAuth
+router.get('/install', (req, res) => {
+    const authUrl = `${ZID_OAUTH_URL}/oauth/authorize?client_id=${ZID_CLIENT_ID}&redirect_uri=${ZID_REDIRECT_URI}&response_type=code`;
+    res.redirect(authUrl);
+});
+
+// 2. Handle Callback
+router.get('/callback', async (req, res) => {
+    const { code } = req.query;
+    if (!code) {
+        return res.status(400).send('Missing authorization code');
+    }
+
+    try {
+        // Exchange code for tokens
+        const tokenResponse = await axios.post(`${ZID_OAUTH_URL}/oauth/token`, {
+            grant_type: 'authorization_code',
+            client_id: ZID_CLIENT_ID,
+            client_secret: ZID_CLIENT_SECRET,
+            redirect_uri: ZID_REDIRECT_URI,
+            code: code
+        });
+
+        const { access_token, refresh_token, expires_in } = tokenResponse.data;
+
+        // Fetch store profile to get the store_id
+        let store_id = 'unknown_store_' + Date.now();
+        try {
+            const profileResponse = await axios.get(`${ZID_API_URL}/managers/account/profile`, {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    'X-MANAGER-TOKEN': access_token,
+                    'Accept': 'application/json',
+                    'Accept-Language': 'en'
+                }
+            });
+            store_id = profileResponse.data?.user?.store_id || profileResponse.data?.store?.id || store_id;
+        } catch (profileError) {
+            console.warn('Could not fetch store profile. Fallback store_id used.', profileError.message);
+        }
+
+        // Save to Supabase
+        const token_expires_at = new Date(Date.now() + expires_in * 1000).toISOString();
+        
+        const { error } = await supabase
+            .from('merchants')
+            .upsert({ 
+                store_id: store_id.toString(), 
+                access_token, 
+                refresh_token,
+                token_expires_at,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'store_id' });
+
+        if (error) {
+            console.error('Supabase Error:', error);
+            throw new Error('Failed to save merchant data');
+        }
+
+        // Redirect to Frontend Dashboard with the store_id so the UI knows who authenticated
+        res.redirect(`http://localhost:5173/?store_id=${store_id}&status=installed`);
+    } catch (error) {
+        console.error('OAuth Error:', error.response?.data || error.message);
+        res.status(500).send('Authentication failed. Please try again.');
+    }
+});
+
+module.exports = router;
