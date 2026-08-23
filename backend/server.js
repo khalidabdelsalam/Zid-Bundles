@@ -9,11 +9,13 @@ const PORT = process.env.PORT || 3000;
 
 // Import Routes
 const authRoutes = require('./routes/auth');
+const bundleRoutes = require('./routes/bundles');
 
 app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/bundles', bundleRoutes);
 
 // Base Route
 app.get('/', (req, res) => {
