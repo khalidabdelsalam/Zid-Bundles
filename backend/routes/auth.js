@@ -17,9 +17,16 @@ router.get('/install', (req, res) => {
 
 // 2. Handle Callback
 router.get('/callback', async (req, res) => {
-    const { code } = req.query;
+    console.log("--- ZID CALLBACK HIT ---");
+    console.log("URL:", req.originalUrl);
+    console.log("QUERY:", req.query);
+    console.log("BODY:", req.body);
+
+    // Try to get code from query or body just in case
+    const code = req.query.code || (req.body && req.body.code);
+    
     if (!code) {
-        return res.status(400).send('Missing authorization code');
+        return res.status(400).send(`Missing authorization code.<br><br>Debug Info:<br>URL: ${req.originalUrl}<br>Query: ${JSON.stringify(req.query)}<br>Body: ${JSON.stringify(req.body)}`);
     }
 
     try {
@@ -69,7 +76,8 @@ router.get('/callback', async (req, res) => {
         }
 
         // Redirect to Frontend Dashboard with the store_id so the UI knows who authenticated
-        res.redirect(`http://localhost:5173/?store_id=${store_id}&status=installed`);
+        // Using a relative redirect so it works on both localhost (if proxying) and production domain
+        res.redirect(`/?store_id=${store_id}&status=installed`);
     } catch (error) {
         console.error('OAuth Error:', error.response?.data || error.message);
         res.status(500).send('Authentication failed. Please try again.');
