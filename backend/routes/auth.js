@@ -44,12 +44,26 @@ router.get('/callback', async (req, res) => {
 
         const { access_token, authorization, refresh_token, expires_in } = tokenResponse.data;
 
-        // Decode the Zid JWT token to get the store_id (it's in the 'sub' claim)
+        // Decode the Zid JWT token to get the user_id (it's in the 'sub' claim)
         const jwtPayload = JSON.parse(Buffer.from(authorization.split('.')[1], 'base64').toString());
-        const store_id = jwtPayload.sub;
+        const user_id = jwtPayload.sub;
+
+        if (!user_id) {
+            throw new Error("Could not extract user_id from Zid authorization token.");
+        }
+
+        // We MUST fetch the profile to get the actual store_id, because user_id != store_id
+        const profileRes = await axios.get(`${ZID_API_URL}/managers/account/profile`, {
+            headers: {
+                'Authorization': `Bearer ${authorization}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        const store_id = profileRes.data.data.store_id || profileRes.data.data.store?.id;
 
         if (!store_id) {
-            throw new Error("Could not extract store_id from Zid authorization token.");
+            throw new Error("Could not fetch store_id from merchant profile.");
         }
 
         const token_expires_at = new Date(Date.now() + (expires_in * 1000)).toISOString();

@@ -56,7 +56,7 @@ router.get('/', zidAuthMiddleware, async (req, res) => {
         });
         
         // Filter out only the ones created as bundle offers by our app
-        const bundles = (response.data.data || []).filter(rule => rule.code === 'bundle_offer');
+        const bundles = (response.data.discount_rules || []).filter(rule => rule.code === 'bundle_offer');
         res.json({ data: bundles });
     } catch (error) {
         console.error('Fetch Bundles Error:', error.response?.data || error.message);
