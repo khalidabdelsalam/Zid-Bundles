@@ -94,7 +94,8 @@ router.post('/', zidAuthMiddleware, async (req, res) => {
                 products_quantity: rewardQuantity || 1
             }
         ],
-        conditions_criteria: 'all'
+        conditions_criteria: 'all',
+        auto_adding: true
     };
 
     try {
