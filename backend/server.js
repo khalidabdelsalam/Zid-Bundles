@@ -11,12 +11,17 @@ const PORT = process.env.PORT || 3000;
 // Import Routes
 const authRoutes = require('./routes/auth');
 const bundleRoutes = require('./routes/bundles');
+const storefrontRoutes = require('./routes/storefront');
 
 app.use(cors());
 app.use(express.json());
 
+// Serve the Storefront Widget statically
+app.use(express.static('public'));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/bundles', bundleRoutes);
+app.use('/api/storefront', storefrontRoutes);
 
 // Base Route
 app.get('/', (req, res) => {

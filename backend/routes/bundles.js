@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { getValidAccessToken } = require('../utils/zidAuth');
+const supabase = require('../supabase');
 const router = express.Router();
 
 const ZID_API_URL = 'https://api.zid.sa/v1';
@@ -67,6 +68,7 @@ router.get('/', zidAuthMiddleware, async (req, res) => {
 // 3. Create a New Bundle
 router.post('/', zidAuthMiddleware, async (req, res) => {
     const { name, targetProductIds, triggerQuantity, discountPercentage, rewardProductIds, rewardQuantity } = req.body;
+    const storeId = req.zidHeaders['STORE-ID'];
 
     if (!name || !targetProductIds || targetProductIds.length === 0) {
         return res.status(400).json({ error: 'Name and target products are required' });
@@ -96,9 +98,36 @@ router.post('/', zidAuthMiddleware, async (req, res) => {
     };
 
     try {
+        // 1. Create discount rule in Zid natively
         const response = await axios.post(`${ZID_API_URL}/managers/store/discounts`, payload, {
             headers: req.zidHeaders
         });
+        
+        const zidRuleId = response.data.discount_rule?.id;
+
+        if (!zidRuleId) {
+             throw new Error("Zid API did not return a rule ID.");
+        }
+
+        // 2. Cache the bundle in our Supabase database for lightning-fast widget rendering
+        const { error: dbError } = await supabase
+            .from('bundles')
+            .insert([{
+                store_id: storeId,
+                zid_rule_id: zidRuleId,
+                name: name,
+                target_product_ids: targetProductIds,
+                reward_product_ids: rewardProductIds || targetProductIds,
+                discount_percentage: discountPercentage || 100,
+                trigger_quantity: triggerQuantity || 1,
+                reward_quantity: rewardQuantity || 1
+            }]);
+
+        if (dbError) {
+            console.error('Supabase Insertion Error:', dbError);
+            // Non-fatal, but we should probably alert
+        }
+
         res.json(response.data);
     } catch (error) {
         console.error('Create Bundle Error:', error.response?.data || error.message);
@@ -109,9 +138,21 @@ router.post('/', zidAuthMiddleware, async (req, res) => {
 // 4. Delete a Bundle
 router.delete('/:id', zidAuthMiddleware, async (req, res) => {
     try {
-        const response = await axios.delete(`${ZID_API_URL}/managers/store/discounts/${req.params.id}`, {
+        // 1. Delete from Zid
+        await axios.delete(`${ZID_API_URL}/managers/store/discounts/${req.params.id}`, {
             headers: req.zidHeaders
         });
+        
+        // 2. Delete from Supabase Cache
+        const { error: dbError } = await supabase
+            .from('bundles')
+            .delete()
+            .match({ zid_rule_id: req.params.id, store_id: req.zidHeaders['STORE-ID'] });
+            
+        if (dbError) {
+             console.error('Supabase Deletion Error:', dbError);
+        }
+
         res.json({ success: true, message: 'Bundle deleted' });
     } catch (error) {
         console.error('Delete Bundle Error:', error.response?.data || error.message);
