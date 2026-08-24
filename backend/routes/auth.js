@@ -60,7 +60,7 @@ router.get('/callback', async (req, res) => {
             }
         });
         
-        const store_id = profileRes.data.data.store_id || profileRes.data.data.store?.id;
+        const store_id = profileRes.data.user?.store_id || profileRes.data.user?.store?.id;
 
         if (!store_id) {
             throw new Error("Could not fetch store_id from merchant profile.");
