@@ -42,31 +42,24 @@ router.get('/callback', async (req, res) => {
         console.log("--- FULL TOKEN RESPONSE ---");
         console.log(JSON.stringify(tokenResponse.data, null, 2));
 
-        const { access_token, refresh_token, expires_in } = tokenResponse.data;
+        const { access_token, authorization, refresh_token, expires_in } = tokenResponse.data;
 
-        // Fetch store profile to get the store_id
-        let store_id = 'unknown_store_' + Date.now();
-        try {
-            const profileResponse = await axios.get(`${ZID_API_URL}/managers/account/profile`, {
-                headers: {
-                    'Authorization': `Bearer ${access_token}`,
-                    'Accept': 'application/json',
-                    'Accept-Language': 'en'
-                }
-            });
-            store_id = profileResponse.data?.user?.store_id || profileResponse.data?.store?.id || store_id;
-        } catch (profileError) {
-            console.warn('Could not fetch store profile. Fallback store_id used.', profileError.message);
+        // Decode the Zid JWT token to get the store_id (it's in the 'sub' claim)
+        const jwtPayload = JSON.parse(Buffer.from(authorization.split('.')[1], 'base64').toString());
+        const store_id = jwtPayload.sub;
+
+        if (!store_id) {
+            throw new Error("Could not extract store_id from Zid authorization token.");
         }
 
-        // Save to Supabase
-        const token_expires_at = new Date(Date.now() + expires_in * 1000).toISOString();
-        
+        const token_expires_at = new Date(Date.now() + (expires_in * 1000)).toISOString();
+
+        // 3. Save to Supabase (Use 'authorization' JWT as the API token since Zid requires it for requests)
         const { error } = await supabase
             .from('merchants')
             .upsert({ 
                 store_id: store_id.toString(), 
-                access_token, 
+                access_token: authorization, // <--- The JWT is the actual Bearer token for Zid API
                 refresh_token,
                 token_expires_at,
                 updated_at: new Date().toISOString()
