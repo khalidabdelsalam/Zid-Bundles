@@ -54,12 +54,15 @@ router.get('/callback', async (req, res) => {
 
         const token_expires_at = new Date(Date.now() + (expires_in * 1000)).toISOString();
 
-        // 3. Save to Supabase (Use 'authorization' JWT as the API token since Zid requires it for requests)
+        // Combine both tokens because Zid APIs require both the JWT and the opaque access token
+        const combined_token = `${authorization}:::${access_token}`;
+
+        // 3. Save to Supabase
         const { error } = await supabase
             .from('merchants')
             .upsert({ 
                 store_id: store_id.toString(), 
-                access_token: authorization, // <--- The JWT is the actual Bearer token for Zid API
+                access_token: combined_token, 
                 refresh_token,
                 token_expires_at,
                 updated_at: new Date().toISOString()

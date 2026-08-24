@@ -13,9 +13,18 @@ async function zidAuthMiddleware(req, res, next) {
     }
 
     try {
-        const accessToken = await getValidAccessToken(storeId);
+        const combinedToken = await getValidAccessToken(storeId);
+        
+        // Split the combined token we saved in auth.js
+        const tokenParts = combinedToken.split(':::');
+        const authToken = tokenParts[0];
+        const managerToken = tokenParts[1] || tokenParts[0];
+
         req.zidHeaders = {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${authToken}`,
+            'X-Manager-Token': managerToken,
+            'STORE-ID': storeId,
+            'Role': 'Manager',
             'Accept': 'application/json',
             'Accept-Language': 'en'
         };
@@ -29,7 +38,7 @@ async function zidAuthMiddleware(req, res, next) {
 // 1. Fetch Products
 router.get('/products', zidAuthMiddleware, async (req, res) => {
     try {
-        const response = await axios.get(`${ZID_API_URL}/managers/store/products`, {
+        const response = await axios.get(`${ZID_API_URL}/products`, {
             headers: req.zidHeaders
         });
         res.json(response.data);
