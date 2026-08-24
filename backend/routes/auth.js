@@ -47,7 +47,6 @@ router.get('/callback', async (req, res) => {
             const profileResponse = await axios.get(`${ZID_API_URL}/managers/account/profile`, {
                 headers: {
                     'Authorization': `Bearer ${access_token}`,
-                    'X-MANAGER-TOKEN': access_token,
                     'Accept': 'application/json',
                     'Accept-Language': 'en'
                 }

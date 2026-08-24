@@ -16,7 +16,6 @@ async function zidAuthMiddleware(req, res, next) {
         const accessToken = await getValidAccessToken(storeId);
         req.zidHeaders = {
             'Authorization': `Bearer ${accessToken}`,
-            'X-MANAGER-TOKEN': accessToken,
             'Accept': 'application/json',
             'Accept-Language': 'en'
         };
@@ -30,7 +29,7 @@ async function zidAuthMiddleware(req, res, next) {
 // 1. Fetch Products
 router.get('/products', zidAuthMiddleware, async (req, res) => {
     try {
-        const response = await axios.get(`${ZID_API_URL}/products`, {
+        const response = await axios.get(`${ZID_API_URL}/managers/store/products`, {
             headers: req.zidHeaders
         });
         res.json(response.data);
