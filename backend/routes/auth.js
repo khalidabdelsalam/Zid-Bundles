@@ -39,6 +39,9 @@ router.get('/callback', async (req, res) => {
             code: code
         });
 
+        console.log("--- FULL TOKEN RESPONSE ---");
+        console.log(JSON.stringify(tokenResponse.data, null, 2));
+
         const { access_token, refresh_token, expires_in } = tokenResponse.data;
 
         // Fetch store profile to get the store_id
