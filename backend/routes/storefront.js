@@ -11,17 +11,23 @@ router.use(cors());
 router.get('/bundles', async (req, res) => {
     const { store_id, product_id } = req.query;
 
-    if (!store_id || !product_id) {
-        return res.status(400).json({ error: 'store_id and product_id are required' });
+    if (!product_id) {
+        return res.status(400).json({ error: 'product_id is required' });
     }
 
     try {
         // Query Supabase for any bundles where this product is the target
-        const { data: bundles, error } = await supabase
+        let query = supabase
             .from('bundles')
             .select('*')
-            .eq('store_id', store_id)
             .contains('target_product_ids', [product_id]);
+            
+        // If store_id is provided and valid, filter by it. Otherwise product UUID is unique enough.
+        if (store_id && store_id !== 'undefined') {
+            query = query.eq('store_id', store_id);
+        }
+
+        const { data: bundles, error } = await query;
 
         if (error) {
             console.error('Supabase Query Error:', error);

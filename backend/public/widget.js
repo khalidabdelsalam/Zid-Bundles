@@ -1,17 +1,35 @@
 (function() {
-    // Ensure we are in a Zid store and on a product page
-    if (!window.zid || !window.zid.store || !window.zid.store.id) return;
+    // Ensure we are in a Zid store
+    if (!window.zid) return;
     
-    // Some themes use zid.store.product, some might expose it differently, we try to safely extract it
-    const storeId = window.zid.store.id;
-    let productId = null;
+    const storeId = (window.zid && window.zid.store && window.zid.store.id) ? window.zid.store.id : 'undefined';
     
-    // Check if we are on a product page
-    if (window.zid.store.product && window.zid.store.product.id) {
-        productId = window.zid.store.product.id;
+    // Robustly find the product UUID on any Zid theme
+    function extractProductId() {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const elements = document.querySelectorAll('button, input, div, span, form');
+        
+        for (let el of elements) {
+            // Check form action
+            if (el.action) {
+                const match = el.action.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+                if (match) return match[0];
+            }
+            // Check dataset
+            if (el.dataset) {
+                for (let key in el.dataset) {
+                    if (uuidRegex.test(el.dataset[key])) return el.dataset[key];
+                }
+            }
+            // Check values/IDs
+            if (el.value && uuidRegex.test(el.value)) return el.value;
+            if (el.id && uuidRegex.test(el.id)) return el.id;
+        }
+        return null;
     }
     
-    if (!productId) return; // Not a product page
+    const productId = extractProductId();
+    if (!productId) return; // Not a product page or couldn't find ID
 
     // Fetch bundles for this specific product
     fetch(`https://zidbundle.oarood.com/api/storefront/bundles?store_id=${storeId}&product_id=${productId}`)
